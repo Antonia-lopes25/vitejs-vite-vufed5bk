@@ -2,7 +2,7 @@
     "name": "Jardim Minimalista Planner",
     "short_name": "Meu Jardim",
     "start_url": "/",
-    "display": "standalone",
+    "display": "fullscreen",
     "background_color": "#F9FAF8",
     "theme_color": "#8DA396",
     "icons": [
