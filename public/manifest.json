@@ -1,0 +1,15 @@
+{
+    "name": "Jardim Minimalista Planner",
+    "short_name": "Meu Jardim",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#F9FAF8",
+    "theme_color": "#8DA396",
+    "icons": [
+      {
+        "src": "https://cdn-icons-png.flaticon.com/512/2913/2913520.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
