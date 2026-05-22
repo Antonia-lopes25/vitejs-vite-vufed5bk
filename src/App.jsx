@@ -73,7 +73,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('planner_tasks', JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem('planner_notes', JSON.stringify(notes)); }, [notes]);
   
-  // Tratamento especial para momentos (limite de tamanho por causa das fotos base64)
   useEffect(() => { 
     try {
       localStorage.setItem('planner_moments', JSON.stringify(moments)); 
@@ -190,7 +189,6 @@ export default function App() {
     <div className={`min-h-screen w-full flex justify-center font-sans ${darkMode ? 'bg-black' : 'bg-[#EAECE9]'}`}>
       <div className={`w-full max-w-md ${themeColors} relative overflow-hidden flex flex-col shadow-2xl md:rounded-[3rem] md:my-4 md:border-8 md:border-[#111]`}>
         
-        {/* CABEÇALHO GERAL */}
         <div className="px-6 pt-12 pb-4 flex justify-between items-center z-10">
           <div>
             <h1 className="font-serif text-2xl tracking-wide">
@@ -205,7 +203,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* TIRA DA SEMANA */}
         {(activeTab === 'home' || activeTab === 'moments') && (
           <div className="px-4 pb-6 flex justify-between shrink-0">
             {weekDays.map((date, i) => {
@@ -226,10 +223,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- CONTEÚDO DAS ABAS --- */}
         <div className="flex-1 overflow-y-auto px-6 pb-32 scrollbar-hide">
-          
-          {/* HOME: TAREFAS */}
           {activeTab === 'home' && (
             <div className="animate-in fade-in duration-500">
               <h2 className="font-serif text-xl mb-4">Meu Dia</h2>
@@ -261,7 +255,6 @@ export default function App() {
             </div>
           )}
 
-          {/* CALENDÁRIO */}
           {activeTab === 'calendar' && (
             <div className="animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-8">
@@ -300,7 +293,6 @@ export default function App() {
             </div>
           )}
 
-          {/* MEMÓRIAS */}
           {activeTab === 'moments' && (
             <div className="animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-6">
@@ -328,7 +320,6 @@ export default function App() {
             </div>
           )}
 
-          {/* CADERNO (NOTAS) */}
           {activeTab === 'journal' && (
             <div className="animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-6">
@@ -349,7 +340,7 @@ export default function App() {
                         {note.type === 'list' && <ListTodo size={16} className="opacity-40" />}
                       </div>
                       <p className="text-sm opacity-60 line-clamp-2 leading-relaxed">
-                        {note.type === 'list' ? note.content.replace(/\[x\]|\[X\]|\[\]/g, '•') : note.content}
+                        {note.type === 'list' ? note.content.replace(/\[[xX ]?\]/g, '•') : note.content}
                       </p>
                     </div>
                   ))
@@ -358,7 +349,6 @@ export default function App() {
             </div>
           )}
 
-          {/* BIBLIOTECA */}
           {activeTab === 'library' && (
             <div className="animate-in fade-in duration-500">
               <div className="flex justify-between items-center mb-6">
@@ -410,9 +400,6 @@ export default function App() {
 
         </div>
 
-        {/* --- MODAIS DE ADIÇÃO (Sobrepostos a toda a tela) --- */}
-        
-        {/* MODAL: NOVA TAREFA */}
         {showTaskModal && (
           <div className="absolute inset-0 z-50 flex flex-col justify-end">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowTaskModal(false)} />
@@ -443,7 +430,6 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL: NOVO MOMENTO */}
         {showMomentModal && (
           <div className="absolute inset-0 z-50 flex flex-col justify-end">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMomentModal(false)} />
@@ -499,7 +485,6 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL: NOVO LIVRO */}
         {showBookModal && (
           <div className="absolute inset-0 z-50 flex flex-col justify-end">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowBookModal(false)} />
@@ -525,7 +510,6 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL TELA CHEIA: EDIÇÃO DE NOTAS */}
         {activeNote && (
           <div className={`absolute inset-0 z-50 flex flex-col animate-in slide-in-from-bottom duration-300 ${darkMode ? 'bg-[#1C211F]' : 'bg-[#F9FAF8]'}`}>
             <div className={`flex items-center justify-between p-4 border-b ${darkMode ? 'border-[#2E3732]' : 'border-[#E6EDE8]'}`}>
@@ -545,7 +529,8 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
                   {activeNote.content.split('\n').map((line, index) => {
                     const isChecked = line.startsWith('[x]') || line.startsWith('[X]');
-                    const text = line.replace(/^\[[xX ]\]/, '').trim();
+                    // Garante que o texto seja apenas o que está depois do marcador
+                    const text = line.replace(/^\[[xX ]?\]\s*/, '');
                     return (
                       <div key={index} className="flex items-center gap-3 mb-3 group">
                         <button onClick={() => { const lines = activeNote.content.split('\n'); lines[index] = isChecked ? `[] ${text}` : `[x] ${text}`; setActiveNote({...activeNote, content: lines.join('\n')}); }} className={`w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${isChecked ? 'bg-[#8DA396] border-[#8DA396] text-white' : (darkMode ? 'border-[#4A5750]' : 'border-[#A3B8AB]')}`}>
@@ -553,13 +538,25 @@ export default function App() {
                         </button>
                         <input 
                           type="text" value={text} placeholder="Novo item"
-                          onChange={(e) => { const lines = activeNote.content.split('\n'); lines[index] = `${isChecked ? '[x]' : '[]'} ${e.target.value}`; setActiveNote({...activeNote, content: lines.join('\n')}); }}
+                          onChange={(e) => { 
+                            const lines = activeNote.content.split('\n');
+                            const prefix = isChecked ? '[x] ' : '[] ';
+                            lines[index] = prefix + e.target.value;
+                            setActiveNote({...activeNote, content: lines.join('\n')}); 
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               const lines = activeNote.content.split('\n');
                               lines.splice(index + 1, 0, '[] ');
                               setActiveNote({...activeNote, content: lines.join('\n')});
+                            } else if (e.key === 'Backspace' && text === '') {
+                              e.preventDefault();
+                              const lines = activeNote.content.split('\n');
+                              if (lines.length > 1) {
+                                lines.splice(index, 1);
+                                setActiveNote({...activeNote, content: lines.join('\n')});
+                              }
                             }
                           }}
                           className={`list-item-input flex-1 bg-transparent outline-none text-[15px] ${isChecked ? 'line-through opacity-50' : ''}`}
@@ -581,7 +578,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- NAVEGAÇÃO INFERIOR (BOTTOM BAR) --- */}
         <div className={`absolute bottom-0 w-full px-6 pb-6 pt-4 rounded-b-[2.5rem] bg-gradient-to-t pointer-events-none z-20 ${darkMode ? 'from-[#1C211F] via-[#1C211F] to-transparent' : 'from-[#F9FAF8] via-[#F9FAF8] to-transparent'}`}>
           <div className={`flex justify-around items-center p-2 rounded-full shadow-lg border backdrop-blur-md pointer-events-auto ${darkMode ? 'bg-[#242B27]/90 border-[#2E3732]' : 'bg-white/95 border-[#E6EDE8]'}`}>
             {[
