@@ -227,6 +227,22 @@ export default function App() {
     }
   };
 
+  // Função vital para Mobile: Aplica a ferramenta a um texto que JÁ está selecionado
+  const applyToolToSelection = (tool, color) => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0) {
+      document.execCommand('styleWithCSS', false, true);
+      if (tool === 'highlight') {
+        document.execCommand('backColor', false, color);
+        document.execCommand('hiliteColor', false, color);
+      } else if (tool === 'color') {
+        document.execCommand('foreColor', false, color);
+      }
+      sel.collapseToEnd();
+      breakColorBleed(false);
+    }
+  };
+
   const toggleTool = (e, tool) => {
     e.preventDefault();
     if (activeTool === tool) {
@@ -236,6 +252,11 @@ export default function App() {
     } else {
       setActiveTool(tool);
       editorRef.current?.focus();
+      
+      // MÁGICA MOBILE: Quando clica na ferramenta, pinta imediatamente se houver texto selecionado!
+      setTimeout(() => {
+        applyToolToSelection(tool, tool === 'highlight' ? toolColors.highlight : toolColors.text);
+      }, 10);
     }
   };
 
@@ -257,7 +278,7 @@ export default function App() {
     }, 50);
   };
 
-  // A MÁGICA FINAL: O espaço só é interceptado se houver cor a vazar!
+  // O espaço só é interceptado se houver cor a vazar!
   const handleKeyDown = (e) => {
     if (e.key === ' ') {
       const bgColor = document.queryCommandValue('backColor');
@@ -802,8 +823,8 @@ export default function App() {
             {activeNote.type === 'text' && (
               <div className={`absolute bottom-0 w-full flex items-center gap-2 px-2 py-3 border-t overflow-x-auto scrollbar-hide shrink-0 z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] ${darkMode ? 'border-[#2E3732] bg-[#1C211F]' : 'border-[#E6EDE8] bg-white'}`}>
                 
-                <button onMouseDown={(e) => handleCommand(e, 'undo')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Undo size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'redo')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Redo size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'undo')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Undo size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'redo')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Redo size={18} /></button>
                 <div className="w-px h-6 bg-gray-300 dark:bg-[#4A5750] shrink-0 mx-1" />
 
                 <select onChange={(e) => handleCommand(e, 'fontName', e.target.value)} className={`bg-black/5 dark:bg-white/10 outline-none text-sm p-1.5 rounded-lg cursor-pointer font-medium ${darkMode?'text-[#E3EAE4]':'text-[#3A453D]'}`}>
@@ -843,43 +864,65 @@ export default function App() {
                 </select>
                 <div className="w-px h-6 bg-gray-300 dark:bg-[#4A5750] shrink-0 mx-1" />
 
-                <button onMouseDown={(e) => handleCommand(e, 'bold')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Bold size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'italic')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Italic size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'underline')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Underline size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'strikethrough')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Strikethrough size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'bold')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Bold size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'italic')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Italic size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'underline')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Underline size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'strikethrough')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><Strikethrough size={18} /></button>
                 <div className="w-px h-6 bg-gray-300 dark:bg-[#4A5750] shrink-0 mx-1" />
 
                 <div className={`flex items-center rounded-lg border transition-colors ${activeTool === 'color' ? (darkMode ? 'bg-[#4A5750] border-[#8DA396]' : 'bg-[#E6EDE8] border-[#849C8A]') : 'border-transparent'}`}>
                   <button 
-                    onMouseDown={(e) => toggleTool(e, 'color')}
+                    onPointerDown={(e) => toggleTool(e, 'color')}
                     className={`p-2 rounded-l-lg ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}
                   >
                     <Baseline size={18} />
                   </button>
-                  <label className="p-2 cursor-pointer rounded-r-lg flex items-center justify-center">
+                  <label onPointerDown={updateSelection} className="p-2 cursor-pointer rounded-r-lg flex items-center justify-center">
                     <div className="w-4 h-4 rounded-full shadow-inner border border-black/20" style={{ backgroundColor: toolColors.text }} />
-                    <input type="color" value={toolColors.text} onChange={(e) => { setToolColors(prev => ({...prev, text: e.target.value})); setActiveTool('color'); handleCommand(e, 'foreColor', e.target.value); }} className="hidden" />
+                    <input type="color" value={toolColors.text} onChange={(e) => { 
+                      const newColor = e.target.value;
+                      setToolColors(prev => ({...prev, text: newColor})); 
+                      setActiveTool('color'); 
+                      editorRef.current?.focus();
+                      if (savedSelection.current) {
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(savedSelection.current);
+                      }
+                      setTimeout(() => applyToolToSelection('color', newColor), 10);
+                    }} className="hidden" />
                   </label>
                 </div>
 
                 <div className={`flex items-center rounded-lg border transition-colors ml-1 ${activeTool === 'highlight' ? (darkMode ? 'bg-[#4A5750] border-[#8DA396]' : 'bg-[#E6EDE8] border-[#849C8A]') : 'border-transparent'}`}>
                   <button 
-                    onMouseDown={(e) => toggleTool(e, 'highlight')}
+                    onPointerDown={(e) => toggleTool(e, 'highlight')}
                     className={`p-2 rounded-l-lg ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}
                   >
                     <Highlighter size={18} />
                   </button>
-                  <label className="p-2 cursor-pointer rounded-r-lg flex items-center justify-center">
+                  <label onPointerDown={updateSelection} className="p-2 cursor-pointer rounded-r-lg flex items-center justify-center">
                     <div className="w-4 h-4 rounded-full shadow-inner border border-black/20" style={{ backgroundColor: toolColors.highlight }} />
-                    <input type="color" value={toolColors.highlight} onChange={(e) => { setToolColors(prev => ({...prev, highlight: e.target.value})); setActiveTool('highlight'); }} className="hidden" />
+                    <input type="color" value={toolColors.highlight} onChange={(e) => { 
+                      const newColor = e.target.value;
+                      setToolColors(prev => ({...prev, highlight: newColor})); 
+                      setActiveTool('highlight'); 
+                      editorRef.current?.focus();
+                      if (savedSelection.current) {
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(savedSelection.current);
+                      }
+                      setTimeout(() => applyToolToSelection('highlight', newColor), 10);
+                    }} className="hidden" />
                   </label>
                 </div>
                 <div className="w-px h-6 bg-gray-300 dark:bg-[#4A5750] shrink-0 mx-1" />
 
-                <button onMouseDown={(e) => handleCommand(e, 'insertUnorderedList')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><ListIcon size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'insertOrderedList')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><ListOrdered size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'justifyLeft')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><AlignLeft size={18} /></button>
-                <button onMouseDown={(e) => handleCommand(e, 'justifyCenter')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><AlignCenter size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'insertUnorderedList')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><ListIcon size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'insertOrderedList')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><ListOrdered size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'justifyLeft')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><AlignLeft size={18} /></button>
+                <button onPointerDown={(e) => handleCommand(e, 'justifyCenter')} className={`p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${darkMode?'text-[#8DA396]':'text-[#4A5750]'}`}><AlignCenter size={18} /></button>
                 
                 <div className="pr-6 shrink-0" />
               </div>
