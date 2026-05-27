@@ -4,7 +4,8 @@ import {
   Circle, X, BookOpen, Briefcase, Heart, Droplets, ListTodo, Trash2, Library, 
   Sparkles, Camera, Image as ImageIcon, Bold, Italic, Highlighter, 
   Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, List as ListIcon, 
-  ListOrdered, Baseline, Palette, Grid, Rows, GripHorizontal, Type, Heading1, Heading2, Undo, Redo, Maximize
+  ListOrdered, Baseline, Palette, Grid, Rows, GripHorizontal, Type, Heading1, Heading2, Undo, Redo, Maximize,
+  Clock, Bell, BellRing, Timer
 } from 'lucide-react';
 
 const loadSavedData = (key, defaultValue) => {
@@ -47,6 +48,12 @@ export default function App() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskCategory, setNewTaskCategory] = useState('pessoal');
+  const [newTaskTime, setNewTaskTime] = useState('');
+  const [newTaskDuration, setNewTaskDuration] = useState('');
+  const [newTaskAlarm, setNewTaskAlarm] = useState(false);
+  
+  const [activeAlarm, setActiveAlarm] = useState(null);
+  const [triggeredAlarms, setTriggeredAlarms] = useState([]);
 
   const [activeNote, setActiveNote] = useState(null);
   const [showPageStyles, setShowPageStyles] = useState(false);
@@ -122,14 +129,54 @@ export default function App() {
 
   const toggleTask = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
+  
   const handleAddTask = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!newTaskText.trim()) return;
-    setTasks([...tasks, { id: Date.now(), text: newTaskText, category: newTaskCategory, completed: false, date: getLocalString(selectedDate) }]);
-    setNewTaskText(''); setShowTaskModal(false);
+    setTasks([...tasks, { 
+      id: Date.now(), 
+      text: newTaskText, 
+      category: newTaskCategory, 
+      completed: false, 
+      date: getLocalString(selectedDate),
+      time: newTaskTime,
+      duration: newTaskDuration,
+      alarm: newTaskAlarm
+    }]);
+    setNewTaskText(''); setNewTaskTime(''); setNewTaskDuration(''); setNewTaskAlarm(false); setShowTaskModal(false);
   };
+
   const dayTasks = tasks.filter(t => t.date === getLocalString(selectedDate));
   const dayMoments = moments.filter(m => m.date === getLocalString(selectedDate));
+
+  // --- LÓGICA DE ALARME E NOTIFICAÇÕES ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const todayStr = getLocalString(now);
+
+      tasks.forEach(task => {
+        if (task.date === todayStr && task.time === currentTime && task.alarm && !task.completed) {
+          const alarmId = `${task.id}-${todayStr}`;
+          if (!triggeredAlarms.includes(alarmId)) {
+            setActiveAlarm(task);
+            setTriggeredAlarms(prev => [...prev, alarmId]);
+
+            // Dispara a notificação nativa do aparelho
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('Jardim Planner 🌿', {
+                body: `Hora da tarefa: ${task.text}`,
+                icon: '/icon-192x192.png',
+                requireInteraction: true 
+              });
+            }
+          }
+        }
+      });
+    }, 10000); // Verifica a cada 10 segundos
+    return () => clearInterval(interval);
+  }, [tasks, triggeredAlarms]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -141,7 +188,7 @@ export default function App() {
   };
 
   const handleAddMoment = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!newMomentText.trim() && !newMomentImage) return;
     setMoments([{ id: Date.now(), text: newMomentText, mood: newMomentMood, image: newMomentImage, filter: newMomentFilter, date: getLocalString(selectedDate) }, ...moments]);
     setNewMomentText(''); setNewMomentImage(null); setNewMomentFilter('none'); setShowMomentModal(false);
@@ -160,19 +207,15 @@ export default function App() {
   // --- LÓGICA CIRÚRGICA DE CORES E FONTES DO EDITOR ---
 
   const handleCommand = (e, command, value = null) => {
-    // Não usar preventDefault se for mudança de Select (que causaria bloqueio do menu)
     if (e && e.type !== 'change') e.preventDefault();
-    
     editorRef.current?.focus();
 
-    // Se o evento foi um 'change' (dropdown da fonte), restauramos a seleção que foi perdida
     if (e && e.type === 'change' && savedSelection.current) {
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(savedSelection.current);
     }
 
-    // Correção para a PRIMEIRA palavra da página (quando o editor está vazio)
     if (command === 'fontName' && editorRef.current) {
       if (editorRef.current.textContent.trim() === '') {
         editorRef.current.innerHTML = `<font face="${value}">&#8203;</font>`;
@@ -191,7 +234,6 @@ export default function App() {
     updateSelection();
   };
 
-  // Função focada APENAS em quebrar a cor, preservando religiosamente a fonte e estilos
   const breakColorBleed = (insertSpace = false) => {
     let currentFont = document.queryCommandValue('fontName') || 'Nunito';
     currentFont = currentFont.replace(/['"]/g, ''); 
@@ -207,27 +249,24 @@ export default function App() {
     if (isItalic) content = `<i>${content}</i>`;
     if (isUnderline) content = `<u>${content}</u>`;
 
-    // Cria uma "zona limpa" com ID para podermos focar nela após injetar
     const id = `clean-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const html = `<span id="${id}" style="background-color: transparent !important; color: inherit;">${content}</span>`;
 
     document.execCommand('insertHTML', false, html);
 
-    // MÁGICA: Força o cursor a entrar DIRETAMENTE na zona limpa recém-criada
     const span = document.getElementById(id);
     if (span) {
       span.removeAttribute('id');
       const sel = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(span);
-      range.collapse(false); // Move para o final do conteúdo (após o zero-width space)
+      range.collapse(false);
       sel.removeAllRanges();
       sel.addRange(range);
       savedSelection.current = range;
     }
   };
 
-  // Função vital para Mobile: Aplica a ferramenta a um texto que JÁ está selecionado
   const applyToolToSelection = (tool, color) => {
     const sel = window.getSelection();
     if (sel && sel.toString().trim().length > 0) {
@@ -248,12 +287,10 @@ export default function App() {
     if (activeTool === tool) {
       setActiveTool(null);
       editorRef.current?.focus();
-      breakColorBleed(false); // Limpa as cores ao desligar o botão
+      breakColorBleed(false);
     } else {
       setActiveTool(tool);
       editorRef.current?.focus();
-      
-      // MÁGICA MOBILE: Quando clica na ferramenta, pinta imediatamente se houver texto selecionado!
       setTimeout(() => {
         applyToolToSelection(tool, tool === 'highlight' ? toolColors.highlight : toolColors.text);
       }, 10);
@@ -273,26 +310,22 @@ export default function App() {
           document.execCommand('foreColor', false, toolColors.text);
         }
         sel.collapseToEnd();
-        breakColorBleed(false); // Quebra a formatação assim que termina de pintar
+        breakColorBleed(false);
       }
     }, 50);
   };
 
-  // O espaço só é interceptado se houver cor a vazar!
   const handleKeyDown = (e) => {
     if (e.key === ' ') {
       const bgColor = document.queryCommandValue('backColor');
       const isHighlighted = bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'rgb(0, 0, 0)';
       
-      // Só intervimos no espaço se NÃO houver ferramenta ativa E o cursor estiver preso num marcador
       if (isHighlighted && !activeTool) {
         e.preventDefault(); 
-        breakColorBleed(true); // Insere o espaço limpo preservando a fonte
+        breakColorBleed(true);
       }
     }
   };
-
-  // --------------------------------------------------------
 
   const handleSaveNote = () => {
     const title = document.getElementById('note-title').value;
@@ -434,11 +467,20 @@ export default function App() {
                 <div className="space-y-3">
                   {dayTasks.map(task => (
                     <div key={task.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${darkMode ? 'bg-[#242B27] border-[#2E3732]' : 'bg-white border-[#E6EDE8]'} ${task.completed ? 'opacity-50' : ''}`}>
-                      <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-full flex items-center justify-center border transition-colors ${task.completed ? 'bg-[#8DA396] text-white border-[#8DA396]' : (darkMode ? 'border-[#4A5750]' : 'border-[#A3B8AB] hover:bg-gray-50')}`}>
+                      <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-full flex items-center justify-center border transition-colors shrink-0 ${task.completed ? 'bg-[#8DA396] text-white border-[#8DA396]' : (darkMode ? 'border-[#4A5750]' : 'border-[#A3B8AB] hover:bg-gray-50')}`}>
                         {task.completed && <Check size={12} />}
                       </button>
-                      <span className={`flex-1 text-[15px] ${task.completed ? 'line-through' : ''}`}>{task.text}</span>
-                      <button onClick={() => deleteTask(task.id)} className={`opacity-50 hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 ${darkMode ? 'text-[#8DA396] hover:text-red-400' : 'text-[#A3B8AB] hover:text-red-500'}`}><Trash2 size={16} /></button>
+                      <div className="flex flex-col flex-1">
+                        <span className={`text-[15px] ${task.completed ? 'line-through' : ''}`}>{task.text}</span>
+                        {(task.time || task.duration) && (
+                          <div className="flex items-center gap-3 mt-1.5 text-xs opacity-60">
+                            {task.time && <span className="flex items-center gap-1"><Clock size={12}/> {task.time}</span>}
+                            {task.duration && <span className="flex items-center gap-1"><Timer size={12}/> {task.duration} min</span>}
+                            {task.alarm && <Bell size={12} className={task.completed ? '' : (darkMode ? 'text-[#8DA396]' : 'text-blue-500')} />}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => deleteTask(task.id)} className={`opacity-50 hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 ${darkMode ? 'text-[#8DA396] hover:text-red-400' : 'text-[#A3B8AB] hover:text-red-500'}`}><Trash2 size={16} /></button>
                     </div>
                   ))}
                   <button onClick={() => setShowTaskModal(true)} className={`w-full py-4 border-2 border-dashed rounded-2xl opacity-60 flex items-center justify-center gap-2 hover:opacity-100 transition-opacity ${darkMode ? 'border-[#4A5750]' : 'border-[#8DA396]'}`}>
@@ -599,6 +641,37 @@ export default function App() {
           )}
         </div>
 
+        {/* Notificação de Alarme na Interface */}
+        {activeAlarm && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[110] animate-in slide-in-from-top-10 fade-in duration-500">
+            <div className={`p-5 rounded-[2rem] shadow-2xl border flex flex-col gap-4 ${darkMode ? 'bg-[#242B27] border-[#4A5750]' : 'bg-white border-[#8DA396]'}`}>
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-full animate-bounce ${darkMode ? 'bg-[#4A5750] text-[#E3EAE4]' : 'bg-[#E8F5E9] text-[#3A4A3F]'}`}>
+                  <BellRing size={24} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-serif text-lg font-bold">Hora da Tarefa!</h4>
+                  <p className="text-sm mt-1 opacity-80">{activeAlarm.text}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setActiveAlarm(null)} 
+                  className={`flex-1 py-2.5 rounded-full text-sm font-medium border ${darkMode ? 'border-[#2E3732] text-[#8DA396] hover:bg-[#2A312D]' : 'border-[#E6EDE8] text-[#849C8A] hover:bg-gray-50'}`}
+                >
+                  Dispensar
+                </button>
+                <button 
+                  onClick={() => { toggleTask(activeAlarm.id); setActiveAlarm(null); }} 
+                  className={`flex-1 py-2.5 rounded-full text-sm font-medium ${darkMode ? 'bg-[#8DA396] text-white' : 'bg-[#4A5750] text-white'}`}
+                >
+                  Concluir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {viewingImage && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md animate-in fade-in" onClick={() => setViewingImage(null)}>
             <button onClick={() => setViewingImage(null)} className="absolute top-6 right-6 p-3 text-white/80 hover:text-white bg-black/50 rounded-full z-[101]"><X size={28} /></button>
@@ -609,17 +682,81 @@ export default function App() {
         {showTaskModal && (
           <div className="absolute inset-0 z-50 flex flex-col justify-end">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowTaskModal(false)} />
-            <div className={`relative w-full rounded-t-[2.5rem] p-6 animate-in slide-in-from-bottom-full duration-300 ${darkMode ? 'bg-[#1C211F]' : 'bg-[#F9FAF8]'}`}>
-              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 bg-black/10 dark:bg-white/10" />
-              <form onSubmit={handleAddTask}>
-                <input autoFocus type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="O que vamos plantar hoje?" className="w-full text-lg bg-transparent outline-none mb-6 font-medium placeholder:opacity-40" />
-                <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-                  {Object.keys(categoryColors).map(cat => (
-                    <button key={cat} type="button" onClick={() => setNewTaskCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-medium capitalize flex items-center gap-2 transition-all whitespace-nowrap border ${newTaskCategory === cat ? categoryColors[cat] : (darkMode ? 'bg-transparent border-[#2E3732] text-[#8DA396]' : 'bg-transparent border-[#E6EDE8] text-[#849C8A]')}`}>{categoryIcons[cat]} {cat}</button>
-                  ))}
+            <div className={`relative w-full rounded-t-[2.5rem] p-6 animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col max-h-[90%] ${darkMode ? 'bg-[#1C211F]' : 'bg-[#F9FAF8]'}`}>
+              <div className="w-12 h-1.5 rounded-full mx-auto mb-6 bg-black/10 dark:bg-white/10 shrink-0" />
+              
+              <form onSubmit={handleAddTask} className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto pb-4 scrollbar-hide">
+                  <input autoFocus type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="O que vamos plantar hoje?" className="w-full text-lg bg-transparent outline-none mb-6 font-medium placeholder:opacity-40" />
+                  
+                  <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                    {Object.keys(categoryColors).map(cat => (
+                      <button key={cat} type="button" onClick={() => setNewTaskCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-medium capitalize flex items-center gap-2 transition-all whitespace-nowrap border ${newTaskCategory === cat ? categoryColors[cat] : (darkMode ? 'bg-transparent border-[#2E3732] text-[#8DA396]' : 'bg-transparent border-[#E6EDE8] text-[#849C8A]')}`}>{categoryIcons[cat]} {cat}</button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-4 mb-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <label className={`text-xs font-medium uppercase tracking-wider block mb-1 ${darkMode ? 'text-[#8DA396]' : 'text-[#849C8A]'}`}>Horário (Opcional)</label>
+                        <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border transition-colors ${darkMode ? 'bg-[#242B27] border-[#2E3732]' : 'bg-white border-[#E6EDE8]'}`}>
+                          <Clock size={16} className="opacity-50" />
+                          <input type="time" value={newTaskTime} onChange={(e) => setNewTaskTime(e.target.value)} className="bg-transparent outline-none flex-1 text-sm font-medium" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <label className={`text-xs font-medium uppercase tracking-wider block mb-1 ${darkMode ? 'text-[#8DA396]' : 'text-[#849C8A]'}`}>Duração (Min)</label>
+                        <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border transition-colors ${darkMode ? 'bg-[#242B27] border-[#2E3732]' : 'bg-white border-[#E6EDE8]'}`}>
+                          <Timer size={16} className="opacity-50" />
+                          <input type="number" placeholder="Ex: 30" value={newTaskDuration} onChange={(e) => setNewTaskDuration(e.target.value)} className="bg-transparent outline-none flex-1 text-sm font-medium w-full" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex items-center justify-between p-4 rounded-2xl border transition-colors ${darkMode ? 'bg-[#242B27] border-[#2E3732]' : 'bg-white border-[#E6EDE8]'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${newTaskAlarm ? (darkMode ? 'bg-[#4A5750] text-white' : 'bg-[#E8F5E9] text-[#3A4A3F]') : 'bg-gray-100 dark:bg-[#1C211F] opacity-50'}`}>
+                          <Bell size={18} />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium block">Lembrete</span>
+                          <span className="text-xs opacity-60">Avisar na hora marcada</span>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          const newState = !newTaskAlarm;
+                          setNewTaskAlarm(newState);
+                          if (newState && 'Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                            Notification.requestPermission();
+                          }
+                        }} 
+                        disabled={!newTaskTime}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${!newTaskTime ? 'opacity-30 cursor-not-allowed' : ''} ${newTaskAlarm ? 'bg-[#8DA396]' : 'bg-gray-300 dark:bg-[#4A5750]'}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${newTaskAlarm ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button type="submit" disabled={!newTaskText.trim()} className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}>Plantar</button>
+                <div className="shrink-0 pt-2">
+                  <button 
+                    type="submit" 
+                    onPointerDown={(e) => {
+                      if (newTaskText.trim()) {
+                        e.preventDefault(); // Evita que o teclado feche e estrague o clique
+                        handleAddTask(e);
+                      }
+                    }}
+                    disabled={!newTaskText.trim()} 
+                    className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}
+                  >
+                    Plantar
+                  </button>
+                </div>
               </form>
+
             </div>
           </div>
         )}
@@ -630,8 +767,9 @@ export default function App() {
             <div className={`relative w-full h-[85%] rounded-t-[2.5rem] p-6 flex flex-col animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] ${darkMode ? 'bg-[#1C211F]' : 'bg-[#F9FAF8]'}`}>
               <div className="w-12 h-1.5 rounded-full mx-auto mb-6 bg-black/10 dark:bg-white/10 shrink-0" />
               <h3 className="font-serif text-lg mb-4 text-center">Registrar Momento</h3>
-              <div className="flex-1 overflow-y-auto pb-4 scrollbar-hide">
-                <form id="moment-form" onSubmit={handleAddMoment}>
+              
+              <form onSubmit={handleAddMoment} className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto pb-4 scrollbar-hide">
                   <div className="mb-4">
                     <textarea autoFocus value={newMomentText} onChange={(e) => setNewMomentText(e.target.value)} placeholder="O que aconteceu hoje?" rows="3" className={`w-full p-4 rounded-[1.5rem] outline-none text-base border transition-colors resize-none ${darkMode ? 'bg-[#242B27] border-[#2E3732] focus:border-[#849C8A]' : 'bg-white border-[#E6EDE8] focus:border-[#849C8A]'}`} />
                   </div>
@@ -668,11 +806,24 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                </form>
-              </div>
-              <div className="shrink-0 pt-2">
-                <button form="moment-form" type="submit" disabled={!newMomentText.trim() && !newMomentImage} className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}>Guardar Memória</button>
-              </div>
+                </div>
+                <div className="shrink-0 pt-2">
+                  <button 
+                    type="submit" 
+                    onPointerDown={(e) => {
+                      if (newMomentText.trim() || newMomentImage) {
+                        e.preventDefault();
+                        handleAddMoment(e);
+                      }
+                    }}
+                    disabled={!newMomentText.trim() && !newMomentImage} 
+                    className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}
+                  >
+                    Guardar Memória
+                  </button>
+                </div>
+              </form>
+
             </div>
           </div>
         )}
@@ -692,7 +843,19 @@ export default function App() {
                     <button key={status} type="button" onClick={() => setNewBookStatus(status)} className={`px-4 py-2 rounded-full text-xs font-medium uppercase tracking-wider transition-colors border ${newBookStatus === status ? (darkMode ? 'bg-[#4A5750] border-[#4A5750] text-[#E3EAE4]' : 'bg-[#4A5750] border-[#4A5750] text-white') : (darkMode ? 'bg-transparent border-[#2E3732] text-[#8DA396]' : 'bg-transparent border-[#E6EDE8] text-[#849C8A]')}`}>{status}</button>
                   ))}
                 </div>
-                <button type="submit" disabled={!newBookTitle.trim()} className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}>Adicionar à Biblioteca</button>
+                <button 
+                  type="submit" 
+                  onPointerDown={(e) => {
+                    if (newBookTitle.trim()) {
+                      e.preventDefault();
+                      handleAddBook(e);
+                    }
+                  }}
+                  disabled={!newBookTitle.trim()} 
+                  className={`w-full py-4 rounded-[1.5rem] font-medium transition-colors disabled:opacity-50 ${darkMode ? 'bg-[#DDE5E1] text-[#1C211F]' : 'bg-[#4A5750] text-white'}`}
+                >
+                  Adicionar à Biblioteca
+                </button>
               </form>
             </div>
           </div>
@@ -711,7 +874,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Sub-menu Inteligente para Padrões e Cores */}
             {showPageStyles && (
               <div className={`flex flex-col gap-4 p-4 border-b shrink-0 shadow-inner ${darkMode ? 'border-[#2E3732] bg-[#242B27]' : 'border-[#E6EDE8] bg-[#F0F5F2]'}`}>
                 <div>
