@@ -1,25 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Jardim Planner</title>
+    
+    <!-- ARQUIVOS PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#EAECE9" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </head>
-  <!-- Ligação ao Manifest -->
-<link rel="manifest" href="/manifest.json" />
-
-<!-- Cor da barra de status no telemóvel -->
-<meta name="theme-color" content="#EAECE9" />
-
-<!-- Suporte específico para iPhone (iOS) -->
-<link rel="apple-touch-icon" href="/icon-192x192.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <body>
-    <script src="https://cdn.tailwindcss.com"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- SERVICE WORKER PWA -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

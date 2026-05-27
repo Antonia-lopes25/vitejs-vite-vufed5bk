@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jardim-planner-v2';
+const CACHE_NAME = 'jardim-planner-v3';
 const urlsToCache = [
   '/',
   '/index.html'
